@@ -4,8 +4,11 @@ import { Button } from './ui/button';
 export default function GoogleSignInButton() {
   const handleSignIn = async () => {
     try {
-      const { url } = await signInWithGoogle();
-      // Supabase will handle the redirect automatically
+      const response = await signInWithGoogle();
+      if (response?.url) {
+        // Redirect to the OAuth URL provided by Vercel API
+        window.location.href = response.url;
+      }
     } catch (error) {
       console.error('Error signing in with Google:', error);
     }

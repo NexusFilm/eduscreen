@@ -1,18 +1,20 @@
 import { supabase } from './supabase';
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+}
+
 export async function signInWithGoogle() {
   try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      },
-    });
-
-    if (error) throw error;
+    // Instead of directly calling Supabase, we'll go through our Vercel API route
+    const response = await fetch('/api/auth/google/signin');
+    if (!response.ok) {
+      throw new Error('Failed to initiate Google sign-in');
+    }
+    const data = await response.json();
     return data;
   } catch (error) {
     console.error('Error signing in with Google:', error);
@@ -22,19 +24,27 @@ export async function signInWithGoogle() {
 
 export async function signOut() {
   try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    // Go through Vercel API route for sign out
+    const response = await fetch('/api/auth/signout', { method: 'POST' });
+    if (!response.ok) {
+      throw new Error('Failed to sign out');
+    }
+    return await response.json();
   } catch (error) {
     console.error('Error signing out:', error);
     throw error;
   }
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<User | null> {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) throw error;
-    return user;
+    // Get user through Vercel API route
+    const response = await fetch('/api/auth/user');
+    if (!response.ok) {
+      if (response.status === 401) return null;
+      throw new Error('Failed to get current user');
+    }
+    return await response.json();
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;
@@ -43,18 +53,13 @@ export async function getCurrentUser() {
 
 export async function getUserProfile() {
   try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-    if (!user) return null;
-
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) throw profileError;
-    return profile;
+    // Get profile through Vercel API route
+    const response = await fetch('/api/auth/profile');
+    if (!response.ok) {
+      if (response.status === 401) return null;
+      throw new Error('Failed to get user profile');
+    }
+    return await response.json();
   } catch (error) {
     console.error('Error getting user profile:', error);
     return null;

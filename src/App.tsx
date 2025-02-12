@@ -13,6 +13,7 @@ import './App.css';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import WidgetMenu from './components/WidgetMenu';
+import { signInWithGoogle, signOut, getCurrentUser, User } from './lib/auth';
 
 interface Position {
   x: number;
@@ -40,11 +41,11 @@ interface ThemeColor {
   hover: string;
 }
 
-interface User {
+interface Class {
   id: string;
   name: string;
-  email: string;
-  picture?: string;
+  theme: string;
+  widgets: Widget[];
 }
 
 const themeColors: ThemeColor[] = [
@@ -119,19 +120,12 @@ const themeColors: ThemeColor[] = [
 // Define which widgets can have multiple instances
 const MULTI_INSTANCE_WIDGETS = ['timer', 'notes'];
 
-// Define default sizes for each widget type - all widgets now use the same size
+// Define default sizes for each widget type
 const WIDGET_DEFAULT_SIZES = {
   timer: '1x1',    // 350px × 500px
   notes: '1x1',    // 350px × 500px
   calculator: '1x1' // 350px × 500px
 } as const;
-
-interface Class {
-  id: string;
-  name: string;
-  theme: string;
-  widgets: Widget[];
-}
 
 // Define core widgets that should be present by default
 const CORE_WIDGETS: Widget[] = [
@@ -181,6 +175,10 @@ const INITIAL_WIDGETS: Widget[] = [
     position: { x: 0, y: 0 }
   }
 ];
+
+const getThemeColors = (t: string): ThemeColor => {
+  return themeColors.find(theme => theme.name === t) || themeColors[0];
+};
 
 export default function App() {
   const [classes, setClasses] = useState<Class[]>([
@@ -305,12 +303,7 @@ export default function App() {
 
   const handleSignIn = async () => {
     try {
-      const response = await fetch('/api/auth/google');
-      if (!response.ok) throw new Error('Authentication failed');
-      
-      const userData = await response.json();
-      setUser(userData);
-      setIsAuthenticated(true);
+      await signInWithGoogle();
     } catch (error) {
       console.error('Sign in error:', error);
     }
@@ -318,7 +311,7 @@ export default function App() {
 
   const handleSignOut = async () => {
     try {
-      await fetch('/api/auth/logout');
+      await signOut();
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
@@ -330,9 +323,8 @@ export default function App() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/session');
-        if (response.ok) {
-          const userData = await response.json();
+        const userData = await getCurrentUser();
+        if (userData) {
           setUser(userData);
           setIsAuthenticated(true);
         }
@@ -348,7 +340,7 @@ export default function App() {
 
   // Add useEffect for theme application
   useEffect(() => {
-    const theme = themeColors.find(t => t.name === currentClass.theme) || themeColors[0];
+    const theme = getThemeColors(currentClass.theme);
     const root = document.documentElement;
     
     // Apply all theme colors
