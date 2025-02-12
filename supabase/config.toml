@@ -38,11 +38,13 @@ pop3_port = 54326
 file_size_limit = "50MB"
 
 [auth]
-# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
-site_url = "http://localhost:3000"
-# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://localhost:3000"]
+# The base URL of your website
+site_url = "https://[YOUR-VERCEL-URL]"
+# A list of URLs that auth providers are permitted to redirect to
+additional_redirect_urls = [
+  "https://[YOUR-VERCEL-URL]",
+  "https://[YOUR-VERCEL-URL]/auth/callback"
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 seconds (one
 # week).
 jwt_expiry = 3600
@@ -65,8 +67,8 @@ enable_confirmations = false
 enabled = true
 client_id = "env(GOOGLE_CLIENT_ID)"
 secret = "env(GOOGLE_CLIENT_SECRET)"
-# Overrides the default auth redirectUrl.
-redirect_uri = "http://localhost:3000/auth/callback"
+# Update this to your Vercel URL
+redirect_uri = "https://[YOUR-VERCEL-URL]/auth/callback"
 # Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
 # or any other third-party OIDC providers.
 url = "" 

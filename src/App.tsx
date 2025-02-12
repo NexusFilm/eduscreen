@@ -8,6 +8,7 @@ import { TabScreen } from './components/Whiteboard/TabScreen';
 import { YouTubePlayerFixed } from './components/widgets/YouTubePlayerFixed';
 import { YouTubeMusicPlayer } from './components/widgets/YouTubeMusicPlayer';
 import SupabaseTest from './components/SupabaseTest';
+import ConfigCheck from './components/ConfigCheck';
 import './App.css';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
