@@ -68,14 +68,47 @@ export const YouTubeMusicPlayer: React.FC<YouTubeMusicPlayerProps> = ({ onTrackS
     setError(null);
     
     try {
-      const response = await apiClient.searchMusic(searchQuery) as SearchMusicResponse;
-      setPlaylist(response.tracks);
+      // Call the YouTube API endpoint
+      const response = await fetch(`/api/youtube/search?q=${encodeURIComponent(searchQuery)}&type=music`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to search music');
+      }
+
+      // Transform the API response to match our Track interface
+      const tracks: Track[] = data.map((video: any) => ({
+        id: video.id,
+        title: video.title,
+        artist: video.channelTitle,
+        thumbnail: video.thumbnail,
+        duration: parseDuration(video.duration)
+      }));
+
+      setPlaylist(tracks);
     } catch (err) {
-      setError('Failed to search music. Please try again.');
       console.error('Search error:', err);
+      setError('Failed to search music. Please try again.');
+      // Fallback to mock data in development
+      if (process.env.NODE_ENV === 'development') {
+        setPlaylist(MOCK_TRACKS);
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to parse YouTube duration format (PT#M#S) to seconds
+  const parseDuration = (duration: string): number => {
+    const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!match) return 0;
+    
+    const [, hours, minutes, seconds] = match;
+    return (
+      (hours ? parseInt(hours) * 3600 : 0) +
+      (minutes ? parseInt(minutes) * 60 : 0) +
+      (seconds ? parseInt(seconds) : 0)
+    );
   };
 
   const handleTrackSelect = (track: Track) => {

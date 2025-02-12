@@ -7,6 +7,7 @@ import { DraggableWidget } from './components/DraggableWidget';
 import { TabScreen } from './components/Whiteboard/TabScreen';
 import { YouTubePlayerFixed } from './components/widgets/YouTubePlayerFixed';
 import { YouTubeMusicPlayer } from './components/widgets/YouTubeMusicPlayer';
+import SupabaseTest from './components/SupabaseTest';
 import './App.css';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -425,6 +426,7 @@ export default function App() {
                 />
               ))}
             </div>
+            <SupabaseTest />
           </div>
           <div className="header-right">
             {!isAuthenticated ? (
@@ -490,7 +492,7 @@ export default function App() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-              </button>
+        </button>
             </div>
             
             <div className="widget-grid">
