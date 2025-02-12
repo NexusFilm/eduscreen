@@ -4,31 +4,22 @@ interface Video {
   id: string;
   title: string;
   thumbnail?: string;
+  duration?: string;
 }
 
-// Mock data to use while API is not ready
-const MOCK_VIDEOS: Video[] = [
-  {
-    id: '1',
-    title: 'Introduction to React - Build Modern Web Apps',
-    thumbnail: 'https://i.imgur.com/8kLqVS9.jpeg'
-  },
-  {
-    id: '2',
-    title: 'JavaScript Fundamentals - Complete Course 2024',
-    thumbnail: 'https://i.imgur.com/QeR74Fn.jpeg'
-  },
-  {
-    id: '3',
-    title: 'CSS Grid and Flexbox - Master Modern Layouts',
-    thumbnail: 'https://i.imgur.com/9l1A4jT.jpeg'
-  },
-  {
-    id: '4',
-    title: 'TypeScript for Beginners - Type Safe JavaScript',
-    thumbnail: 'https://i.imgur.com/X9tWkRC.jpeg'
-  }
-];
+interface YouTubeSearchResult {
+  id: {
+    videoId: string;
+  };
+  snippet: {
+    title: string;
+    thumbnails: {
+      medium: {
+        url: string;
+      };
+    };
+  };
+}
 
 export const YouTubePlayerFixed: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,11 +38,25 @@ export const YouTubePlayerFixed: React.FC = () => {
     setError(null);
     
     try {
-      // Mock search functionality until API is ready
-      const filteredVideos = MOCK_VIDEOS.filter(video => 
-        video.title.toLowerCase().includes(searchQuery.toLowerCase())
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(
+          searchQuery
+        )}&type=video&key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}`
       );
-      setSearchResults(filteredVideos);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch videos');
+      }
+
+      const data = await response.json();
+      
+      const videos: Video[] = data.items.map((item: YouTubeSearchResult) => ({
+        id: item.id.videoId,
+        title: item.snippet.title,
+        thumbnail: item.snippet.thumbnails.medium.url
+      }));
+
+      setSearchResults(videos);
     } catch (err) {
       setError('Failed to search videos. Please try again.');
       console.error('Search error:', err);
