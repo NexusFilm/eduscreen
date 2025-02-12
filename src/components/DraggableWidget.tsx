@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
 
 interface Position {
   x: number;
@@ -17,132 +18,87 @@ interface DraggableWidgetProps {
   classId: string;
   size?: '1x1' | '1x2' | '2x1' | '2x2';
   isCustomizing?: boolean;
+  index: number;
+  moveWidget: (dragIndex: number, hoverIndex: number) => void;
+  type: 'timer' | 'notes' | 'calculator' | 'youtube';
 }
+
+const ItemTypes = {
+  WIDGET: 'widget'
+};
 
 export const DraggableWidget: React.FC<DraggableWidgetProps> = ({
   children,
   id,
   title,
   icon,
-  onPositionChange,
-  initialPosition,
   onRemove,
   canRemove = true,
   classId,
   size = '1x1',
   isCustomizing = false,
+  index,
+  moveWidget,
+  type
 }) => {
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState<Position>(initialPosition || { x: 0, y: 0 });
-  const dragRef = useRef<HTMLDivElement>(null);
-  const mouseOffset = useRef<Position>({ x: 0, y: 0 });
+  const [isMinimized, setIsMinimized] = React.useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (dragRef.current && !isDragging) {
-      dragRef.current.style.transform = `translate(${position.x}px, ${position.y}px)`;
-    }
-  }, [position, isDragging]);
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.WIDGET,
+    item: () => ({ id, index, size, type }),
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+    canDrag: () => isCustomizing,
+  });
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isCustomizing) return;
+  const [, drop] = useDrop({
+    accept: ItemTypes.WIDGET,
+    hover: (item: { id: string; index: number; size: string; type: string }, monitor) => {
+      if (!ref.current) return;
+      
+      const dragIndex = item.index;
+      const hoverIndex = index;
 
-    e.preventDefault();
-    const rect = dragRef.current?.getBoundingClientRect();
-    if (!rect) return;
+      if (dragIndex === hoverIndex) return;
 
-    setIsDragging(true);
-    mouseOffset.current = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging || !dragRef.current) return;
+      moveWidget(dragIndex, hoverIndex);
+      item.index = hoverIndex;
+    },
+    canDrop: () => isCustomizing,
+  });
 
-    const gridRect = dragRef.current.parentElement?.getBoundingClientRect();
-    if (!gridRect) return;
-
-    const widgetRect = dragRef.current.getBoundingClientRect();
-    
-    // Calculate new position
-    let x = e.clientX - mouseOffset.current.x - gridRect.left;
-    let y = e.clientY - mouseOffset.current.y - gridRect.top;
-
-    // Constrain to grid boundaries
-    x = Math.max(0, Math.min(x, gridRect.width - widgetRect.width));
-    y = Math.max(0, Math.min(y, gridRect.height - widgetRect.height));
-
-    dragRef.current.style.transform = `translate(${x}px, ${y}px)`;
-  };
-
-  const handleMouseUp = (e: MouseEvent) => {
-    if (!isDragging || !dragRef.current) return;
-
-    const gridRect = dragRef.current.parentElement?.getBoundingClientRect();
-    if (!gridRect) return;
-
-    const widgetRect = dragRef.current.getBoundingClientRect();
-    
-    // Calculate final position
-    let x = e.clientX - mouseOffset.current.x - gridRect.left;
-    let y = e.clientY - mouseOffset.current.y - gridRect.top;
-
-    // Constrain to grid boundaries
-    x = Math.max(0, Math.min(x, gridRect.width - widgetRect.width));
-    y = Math.max(0, Math.min(y, gridRect.height - widgetRect.height));
-
-    setPosition({ x, y });
-    setIsDragging(false);
-    
-    if (onPositionChange) {
-      onPositionChange(id, { x, y });
-    }
-
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
-
-  const defaultIcon = (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-        d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  );
+  drag(drop(ref));
 
   return (
     <div
-      ref={dragRef}
-      data-widget-id={id}
+      ref={ref}
       className={`
         widget
+        ${type}-widget
         transition-all duration-200
         ${isMinimized ? 'minimized' : ''}
         ${isDragging ? 'dragging' : ''}
       `}
+      data-size={size}
       style={{
-        transform: `translate(${position.x}px, ${position.y}px)`,
+        opacity: isDragging ? 0.4 : 1,
       }}
     >
-      {/* Header */}
-      <div
-        className={`
-          flex items-center justify-between px-4 py-3
-          select-none text-white
-          bg-gradient-to-r from-primary-color to-secondary-color
-        `}
-      >
+      <div className={`widget-header ${type === 'notes' ? 'notes-header' : ''}`}>
         <div className="flex items-center space-x-3">
           {isCustomizing && (
-            <div
-              className="drag-handle w-8 h-8 rounded-full flex items-center justify-center"
-              onMouseDown={handleMouseDown}
-              title="Drag to move widget"
-            >
+            <div className="drag-handle w-8 h-8 rounded-full flex items-center justify-center cursor-move">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                   d="M5 10h14M5 14h14" />
@@ -150,7 +106,12 @@ export const DraggableWidget: React.FC<DraggableWidgetProps> = ({
             </div>
           )}
           <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-            {icon || defaultIcon}
+            {icon || (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
           </div>
           <span className="font-medium truncate">{title}</span>
         </div>
@@ -188,10 +149,9 @@ export const DraggableWidget: React.FC<DraggableWidgetProps> = ({
         </div>
       </div>
 
-      {/* Content */}
       <div 
         className={`
-          widget-content overflow-hidden transition-all duration-300 ease-in-out bg-white
+          widget-content
           ${isMinimized ? 'max-h-0' : 'h-[calc(100%-3rem)]'}
         `}
       >

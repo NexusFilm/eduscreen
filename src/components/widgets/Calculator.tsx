@@ -6,11 +6,9 @@ interface CalculatorProps {
 
 export const Calculator: React.FC<CalculatorProps> = ({ label = 'Calculator' }) => {
   const [display, setDisplay] = useState('0');
-  const [memory, setMemory] = useState<number>(0);
   const [isScientific, setIsScientific] = useState(false);
   const [lastOperation, setLastOperation] = useState<string | null>(null);
   const [waitingForOperand, setWaitingForOperand] = useState(false);
-  const [history, setHistory] = useState<string[]>([]);
 
   const standardButtons = [
     ['C', '±', '%', '÷'],
@@ -18,13 +16,6 @@ export const Calculator: React.FC<CalculatorProps> = ({ label = 'Calculator' }) 
     ['4', '5', '6', '-'],
     ['1', '2', '3', '+'],
     ['0', '.', '=']
-  ];
-
-  const scientificButtons = [
-    ['sin', 'cos', 'tan', 'π'],
-    ['x²', 'x³', '√', 'log'],
-    ['(', ')', 'exp', '^'],
-    ['MC', 'MR', 'M+', 'M-']
   ];
 
   const handleNumber = (num: string) => {
@@ -54,13 +45,12 @@ export const Calculator: React.FC<CalculatorProps> = ({ label = 'Calculator' }) 
 
     setLastOperation(operator);
     setWaitingForOperand(true);
-    setHistory([...history, display, operator]);
   };
 
   const calculate = () => {
     const currentValue = parseFloat(display);
-    const previousValue = parseFloat(history[history.length - 2]);
-    const operation = history[history.length - 1];
+    const previousValue = parseFloat(display);
+    const operation = lastOperation;
 
     let result = 0;
     switch (operation) {
@@ -87,65 +77,13 @@ export const Calculator: React.FC<CalculatorProps> = ({ label = 'Calculator' }) 
     }
 
     setDisplay(result.toString());
-    setHistory([]);
     setLastOperation(null);
-    setWaitingForOperand(true);
-  };
-
-  const handleScientificFunction = (func: string) => {
-    const currentValue = parseFloat(display);
-    let result = 0;
-
-    switch (func) {
-      case 'sin':
-        result = Math.sin(currentValue);
-        break;
-      case 'cos':
-        result = Math.cos(currentValue);
-        break;
-      case 'tan':
-        result = Math.tan(currentValue);
-        break;
-      case 'π':
-        result = Math.PI;
-        break;
-      case 'x²':
-        result = Math.pow(currentValue, 2);
-        break;
-      case 'x³':
-        result = Math.pow(currentValue, 3);
-        break;
-      case '√':
-        result = Math.sqrt(currentValue);
-        break;
-      case 'log':
-        result = Math.log10(currentValue);
-        break;
-      case 'exp':
-        result = Math.exp(currentValue);
-        break;
-      case 'MC':
-        setMemory(0);
-        return;
-      case 'MR':
-        setDisplay(memory.toString());
-        return;
-      case 'M+':
-        setMemory(memory + currentValue);
-        return;
-      case 'M-':
-        setMemory(memory - currentValue);
-        return;
-    }
-
-    setDisplay(result.toString());
     setWaitingForOperand(true);
   };
 
   const handleClear = () => {
     setDisplay('0');
     setLastOperation(null);
-    setHistory([]);
     setWaitingForOperand(false);
   };
 
@@ -159,89 +97,68 @@ export const Calculator: React.FC<CalculatorProps> = ({ label = 'Calculator' }) 
     }
   };
 
-  const renderButton = (btn: string) => {
-    const isOperator = ['÷', '×', '-', '+', '=', '%', '^'].includes(btn);
-    const isFunction = ['sin', 'cos', 'tan', 'log', 'exp'].includes(btn);
-    const isMemory = ['MC', 'MR', 'M+', 'M-'].includes(btn);
-
-    return (
-      <button
-        key={btn}
-        onClick={() => {
-          if (btn === 'C') handleClear();
-          else if (btn === '±') handleSign();
-          else if (btn === '.') handleDecimal();
-          else if (btn === '=') handleEquals();
-          else if (isOperator) handleOperator(btn);
-          else if (isFunction || isMemory || ['π', 'x²', 'x³', '√'].includes(btn)) handleScientificFunction(btn);
-          else handleNumber(btn);
-        }}
-        className={`
-          p-3 text-sm font-medium rounded-lg transition-all duration-200
-          ${btn === '=' ? 'col-span-2 bg-primary-color text-white' : ''}
-          ${isOperator ? 'bg-gray-200 hover:bg-gray-300' : 'bg-white hover:bg-gray-100'}
-          ${isFunction || isMemory ? 'bg-gray-100 hover:bg-gray-200' : ''}
-          active:scale-95 shadow-sm hover:shadow-md
-        `}
-        style={{
-          color: isOperator ? 'var(--primary-color)' : undefined,
-        }}
-      >
-        {btn}
-      </button>
-    );
-  };
-
   return (
-    <div className="p-4 bg-gray-50 rounded-lg h-full flex flex-col">
-      {/* Mode Toggle */}
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium text-gray-900">{label}</h3>
+    <div className="h-full flex flex-col bg-white rounded-lg overflow-hidden">
+      {/* Header with mode toggle - 40px height */}
+      <div className="h-10 flex justify-between items-center px-4 border-b">
+        <h3 className="text-sm font-medium text-gray-900">{label}</h3>
         <button
           onClick={() => setIsScientific(!isScientific)}
-          className="px-3 py-1.5 text-sm font-medium rounded-lg
-            transition-all duration-200 hover:shadow-md active:scale-95"
+          className="px-2 py-1 text-xs font-medium rounded-md
+            transition-all duration-200"
           style={{
             background: isScientific ? 'var(--primary-color)' : 'white',
             color: isScientific ? 'white' : 'var(--primary-color)',
             border: `1px solid var(--primary-color)`
           }}
         >
-          {isScientific ? 'Standard' : 'Scientific'}
+          {isScientific ? 'Basic' : 'Scientific'}
         </button>
       </div>
 
-      {/* Display */}
-      <div className="bg-white p-4 rounded-lg mb-4 shadow-inner">
+      {/* Display - 60px height */}
+      <div className="h-15 p-4 bg-gray-50">
         <div className="text-right">
-          <div className="text-gray-500 text-sm mb-1">
-            {history.join(' ')}
-          </div>
-          <div className="text-3xl font-medium text-gray-900 break-all">
+          <div className="text-2xl font-medium text-gray-900 truncate">
             {display}
           </div>
         </div>
       </div>
 
-      {/* Keypad */}
-      <div className="flex-1 grid gap-2">
-        {isScientific && (
-          <div className="grid grid-cols-4 gap-2 mb-2">
-            {scientificButtons.map(row => (
-              <React.Fragment key={row.join('')}>
-                {row.map(btn => renderButton(btn))}
-              </React.Fragment>
+      {/* Keypad - 200px height */}
+      <div className="flex-1 p-2 grid grid-cols-4 gap-1">
+        {standardButtons.map((row, rowIndex) => (
+          <React.Fragment key={rowIndex}>
+            {row.map((btn) => (
+              <button
+                key={btn}
+                onClick={() => {
+                  if (btn === 'C') handleClear();
+                  else if (btn === '±') setDisplay(n => (parseFloat(n) * -1).toString());
+                  else if (btn === '=') handleEquals();
+                  else if ('÷×+-'.includes(btn)) handleOperator(btn);
+                  else if (btn === '.') {
+                    if (!display.includes('.')) setDisplay(d => d + '.');
+                  }
+                  else handleNumber(btn);
+                }}
+                className={`
+                  ${btn === '=' ? 'col-span-2 bg-primary-color text-white' : ''}
+                  ${['÷', '×', '-', '+'].includes(btn) ? 'bg-gray-100' : 'bg-white'}
+                  rounded-lg text-sm font-medium
+                  hover:bg-opacity-90 active:transform active:scale-95
+                  transition-all duration-150
+                `}
+                style={{
+                  height: '40px'
+                }}
+              >
+                {btn}
+              </button>
             ))}
-          </div>
-        )}
-        <div className="grid grid-cols-4 gap-2">
-          {standardButtons.map(row => (
-            <React.Fragment key={row.join('')}>
-              {row.map(btn => renderButton(btn))}
-            </React.Fragment>
-          ))}
-        </div>
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );
-}; 
+};

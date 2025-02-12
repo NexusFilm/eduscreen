@@ -1,13 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Timer } from './components/widgets/Timer';
 import { QuickNotes } from './components/widgets/QuickNotes';
 import { ColorTheme } from './components/widgets/ColorTheme';
 import { Calculator } from './components/widgets/Calculator';
 import { DraggableWidget } from './components/DraggableWidget';
 import { TabScreen } from './components/Whiteboard/TabScreen';
-import { YouTubePlayerWidget } from './components/widgets/YouTubePlayerWidget';
 import { YouTubePlayerFixed } from './components/widgets/YouTubePlayerFixed';
+import { YouTubeMusicPlayer } from './components/widgets/YouTubeMusicPlayer';
 import './App.css';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import WidgetMenu from './components/WidgetMenu';
 
 interface Position {
   x: number;
@@ -16,7 +19,7 @@ interface Position {
 
 interface Widget {
   id: string;
-  type: 'timer' | 'notes' | 'youtube' | 'calculator';
+  type: 'timer' | 'notes' | 'calculator';
   position?: Position;
   label?: string;
   isCore?: boolean;
@@ -28,6 +31,18 @@ interface ThemeColor {
   primary: string;
   secondary: string;
   accent: string;
+  background: string;
+  surface: string;
+  text: string;
+  border: string;
+  hover: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
 }
 
 const themeColors: ThemeColor[] = [
@@ -35,52 +50,89 @@ const themeColors: ThemeColor[] = [
     name: 'ocean',
     primary: '#4F46E5',
     secondary: '#818CF8',
-    accent: '#6EE7B7'
+    accent: '#6EE7B7',
+    background: '#F8FAFC',
+    surface: '#FFFFFF',
+    text: '#1E293B',
+    border: '#E2E8F0',
+    hover: '#F1F5F9'
   },
   {
     name: 'sunset',
     primary: '#F97316',
     secondary: '#FB923C',
-    accent: '#FBBF24'
+    accent: '#FBBF24',
+    background: '#FFF7ED',
+    surface: '#FFFFFF',
+    text: '#431407',
+    border: '#FED7AA',
+    hover: '#FFF3E7'
   },
   {
     name: 'forest',
     primary: '#059669',
     secondary: '#34D399',
-    accent: '#A7F3D0'
+    accent: '#A7F3D0',
+    background: '#F0FDF4',
+    surface: '#FFFFFF',
+    text: '#064E3B',
+    border: '#D1FAE5',
+    hover: '#ECFDF5'
   },
   {
     name: 'berry',
     primary: '#DB2777',
     secondary: '#EC4899',
-    accent: '#F9A8D4'
+    accent: '#F9A8D4',
+    background: '#FDF2F8',
+    surface: '#FFFFFF',
+    text: '#831843',
+    border: '#FCE7F3',
+    hover: '#FDF2F8'
   },
   {
     name: 'dark',
     primary: '#6366F1',
     secondary: '#818CF8',
-    accent: '#34D399'
+    accent: '#34D399',
+    background: '#0F172A',
+    surface: '#1E293B',
+    text: '#F8FAFC',
+    border: '#334155',
+    hover: '#1E293B'
   },
   {
     name: 'minimal',
     primary: '#475569',
     secondary: '#64748B',
-    accent: '#94A3B8'
+    accent: '#94A3B8',
+    background: '#FFFFFF',
+    surface: '#F8FAFC',
+    text: '#0F172A',
+    border: '#E2E8F0',
+    hover: '#F1F5F9'
   }
 ];
 
 // Define which widgets can have multiple instances
 const MULTI_INSTANCE_WIDGETS = ['timer', 'notes'];
 
+// Define default sizes for each widget type - all widgets now use the same size
+const WIDGET_DEFAULT_SIZES = {
+  timer: '1x1',    // 350px × 500px
+  notes: '1x1',    // 350px × 500px
+  calculator: '1x1' // 350px × 500px
+} as const;
+
+interface Class {
+  id: string;
+  name: string;
+  theme: string;
+  widgets: Widget[];
+}
+
 // Define core widgets that should be present by default
 const CORE_WIDGETS: Widget[] = [
-  { 
-    id: 'youtube-1', 
-    type: 'youtube', 
-    isCore: true, 
-    label: 'YouTube Player',
-    size: '2x2'
-  },
   { 
     id: 'timer-1', 
     type: 'timer', 
@@ -93,26 +145,42 @@ const CORE_WIDGETS: Widget[] = [
     type: 'calculator',
     isCore: true,
     label: 'Calculator',
-    size: '1x2'
+    size: '1x1'
+  },
+  {
+    id: 'notes-1',
+    type: 'notes',
+    isCore: true,
+    label: 'Quick Notes',
+    size: '1x1'
   }
 ];
 
-interface Class {
-  id: string;
-  name: string;
-  theme: string;
-  widgets: Widget[];
-}
-
 const INITIAL_WIDGETS: Widget[] = [
-  { id: '1', type: 'timer', label: 'Timer', size: '1x1', position: { x: 20, y: 20 } },
-  { id: '2', type: 'notes', label: 'Quick Notes', size: '1x2', position: { x: 400, y: 20 } },
-  { id: '3', type: 'calculator', label: 'Calculator', size: '1x1', position: { x: 20, y: 300 } },
+  { 
+    id: 'timer-1', 
+    type: 'timer', 
+    label: 'Timer', 
+    size: '1x1',
+    position: { x: 0, y: 0 }
+  },
+  { 
+    id: 'notes-1', 
+    type: 'notes', 
+    label: 'Quick Notes', 
+    size: '1x2',
+    position: { x: 0, y: 0 }
+  },
+  { 
+    id: 'calculator-1', 
+    type: 'calculator', 
+    label: 'Calculator', 
+    size: '1x1',
+    position: { x: 0, y: 0 }
+  }
 ];
 
-function App() {
-  const [isCustomizing, setIsCustomizing] = useState(false);
-  const [widgets, setWidgets] = useState<Widget[]>(INITIAL_WIDGETS);
+export default function App() {
   const [classes, setClasses] = useState<Class[]>([
     {
       id: '1',
@@ -128,376 +196,332 @@ function App() {
   const [isClassMenuOpen, setIsClassMenuOpen] = useState(false);
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isWidgetMenuOpen, setIsWidgetMenuOpen] = useState(false);
+  const [selectedWidgetType, setSelectedWidgetType] = useState<string | null>(null);
+  const [showWidgetMenu, setShowWidgetMenu] = useState(false);
 
-  // Debug logging
-  console.log('App State:', {
-    widgets,
-    isAddingWidget: false,
-    currentClass,
-    isEditingClassName,
-    isAuthenticated,
-    isProfileMenuOpen
-  });
-
-  useEffect(() => {
-    console.log('Core Widgets Loaded:', CORE_WIDGETS);
-    console.log('Current Theme:', currentClass.theme);
-  }, []);
-
-  // Update widget positions when window resizes
-  useEffect(() => {
-    const handleResize = () => {
-      setWidgets(prev => prev.map(widget => {
-        if (widget.id === 'youtube-1') {
-          return { ...widget, position: { x: 20, y: 120 } };
-        }
-        if (widget.id === 'timer-1') {
-          return { ...widget, position: { x: 420, y: 120 } };
-        }
-        return widget;
-      }));
+  // Calculate grid positions for widgets
+  const calculateGridPosition = (index: number) => {
+    const gridColumns = 2;
+    const row = Math.floor(index / gridColumns);
+    const col = index % gridColumns;
+    
+    return {
+      x: col * 350,
+      y: row * 500
     };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  };
 
   const handleAddWidget = (type: string) => {
-    const count = widgets.filter(w => w.type === type).length + 1;
     const newWidget: Widget = {
-      id: `${type}-${count}`,
-      type: type as Widget['type'],
-      position: { x: 0, y: 0 },
-      label: `${type} ${count}`,
-      size: type === 'youtube' ? '1x2' : '1x1'
+      id: `widget-${Date.now()}`,
+      type: type as 'timer' | 'notes' | 'calculator',
+      label: getWidgetTitle(type),
+      size: WIDGET_DEFAULT_SIZES[type as keyof typeof WIDGET_DEFAULT_SIZES] || '1x1',
+      position: calculateGridPosition(currentClass.widgets.length)
     };
-
-    setWidgets(prev => {
-      const updated = [...prev, newWidget];
-      // Update class widgets
-      setClasses(prevClasses => 
-        prevClasses.map(c => 
-          c.id === currentClass.id 
-            ? { ...c, widgets: updated }
-            : c
-        )
-      );
-      return updated;
-    });
-  };
-
-  const handlePositionChange = (id: string, position: Position) => {
-    if (!isCustomizing) return;
     
-    setWidgets(prevWidgets =>
-      prevWidgets.map(widget =>
-        widget.id === id ? { ...widget, position } : widget
+    setClasses(prevClasses => 
+      prevClasses.map(c => 
+        c.id === currentClass.id 
+          ? { ...c, widgets: [...c.widgets, newWidget] }
+          : c
       )
     );
+    setCurrentClass(prev => ({
+      ...prev,
+      widgets: [...prev.widgets, newWidget]
+    }));
   };
 
-  const removeWidget = (id: string) => {
-    const widget = widgets.find(w => w.id === id);
-    if (widget?.isCore) return;
-    
-    setWidgets(prev => {
-      const updated = prev.filter(w => w.id !== id);
-      // Update class widgets
-      setClasses(prevClasses => 
-        prevClasses.map(c => 
-          c.id === currentClass.id 
-            ? { ...c, widgets: updated }
-            : c
-        )
-      );
-      return updated;
-    });
-  };
-
-  const reorderWidgets = (startIndex: number, endIndex: number) => {
-    setWidgets(prev => {
-      const updated = Array.from(prev);
-      const [removed] = updated.splice(startIndex, 1);
-      updated.splice(endIndex, 0, removed);
-      
-      // Update class widgets
-      setClasses(prevClasses => 
-        prevClasses.map(c => 
-          c.id === currentClass.id 
-            ? { ...c, widgets: updated }
-            : c
-        )
-      );
-      return updated;
-    });
-  };
-
-  const switchClass = (classId: string) => {
-    const newClass = classes.find(c => c.id === classId);
-    if (newClass) {
-      setCurrentClass(newClass);
-      setWidgets(newClass.widgets);
-      setIsClassMenuOpen(false);
+  const getWidgetTitle = (type: string): string => {
+    switch (type) {
+      case 'timer':
+        return 'Timer';
+      case 'notes':
+        return 'Quick Notes';
+      case 'calculator':
+        return 'Calculator';
+      default:
+        return 'Widget';
     }
   };
 
-  const addClass = () => {
-    const newClass: Class = {
-      id: Date.now().toString(),
-      name: `Class ${classes.length + 1}`,
-      theme: 'ocean',
-      widgets: CORE_WIDGETS
-    };
-    setClasses(prev => [...prev, newClass]);
-    switchClass(newClass.id);
-  };
-
-  const toggleCustomizeMode = () => {
-    setIsCustomizing(!isCustomizing);
-  };
-
-  const handleSwapWidgets = (sourceId: string, targetId: string) => {
-    setWidgets(prevWidgets => {
-      const newWidgets = [...prevWidgets];
-      const sourceIndex = newWidgets.findIndex(w => w.id === sourceId);
-      const targetIndex = newWidgets.findIndex(w => w.id === targetId);
-      
-      if (sourceIndex !== -1 && targetIndex !== -1) {
-        [newWidgets[sourceIndex], newWidgets[targetIndex]] = 
-        [newWidgets[targetIndex], newWidgets[sourceIndex]];
-      }
-      
-      return newWidgets;
-    });
-  };
-
-  const renderWidget = (widget: Widget) => {
-    const getWidgetComponent = () => {
-      switch (widget.type) {
-        case 'timer':
-          return <Timer label={widget.label} />;
-        case 'notes':
-          return <QuickNotes />;
-        case 'calculator':
-          return <Calculator label={widget.label} />;
-        case 'youtube':
-          return <YouTubePlayerWidget label={widget.label} />;
-        default:
-          return null;
-      }
-    };
-
-    return (
-      <DraggableWidget
-        key={widget.id}
-        id={widget.id}
-        title={widget.label || widget.type}
-        size={widget.size}
-        canRemove={!widget.isCore}
-        onRemove={() => removeWidget(widget.id)}
-        classId={currentClass?.id || ''}
-        isCustomizing={isCustomizing}
-        onPositionChange={handlePositionChange}
-        initialPosition={widget.position}
-      >
-        {getWidgetComponent()}
-      </DraggableWidget>
+  const removeWidget = (id: string) => {
+    const widget = currentClass.widgets.find(w => w.id === id);
+    if (widget?.isCore) return;
+    
+    setClasses(prevClasses => 
+      prevClasses.map(c => 
+        c.id === currentClass.id 
+          ? { ...c, widgets: c.widgets.filter(w => w.id !== id) }
+          : c
+      )
     );
+    setCurrentClass(prev => ({
+      ...prev,
+      widgets: prev.widgets.filter(w => w.id !== id)
+    }));
   };
+
+  const moveWidget = useCallback((dragIndex: number, hoverIndex: number) => {
+    setClasses(prevClasses => 
+      prevClasses.map(c => {
+        if (c.id === currentClass.id) {
+          const newWidgets = [...c.widgets];
+          const draggedWidget = newWidgets[dragIndex];
+          newWidgets.splice(dragIndex, 1);
+          newWidgets.splice(hoverIndex, 0, draggedWidget);
+          return { ...c, widgets: newWidgets };
+        }
+        return c;
+      })
+    );
+    setCurrentClass(prev => {
+      const newWidgets = [...prev.widgets];
+      const draggedWidget = newWidgets[dragIndex];
+      newWidgets.splice(dragIndex, 1);
+      newWidgets.splice(hoverIndex, 0, draggedWidget);
+      return { ...prev, widgets: newWidgets };
+    });
+  }, [currentClass.id]);
+
+  const getWidgetComponent = (widget: Widget) => {
+    switch (widget.type) {
+      case 'timer':
+        return <Timer label={widget.label} />;
+      case 'notes':
+        return <QuickNotes />;
+      case 'calculator':
+        return <Calculator label={widget.label} />;
+      default:
+        return null;
+    }
+  };
+
+  const handleSignIn = async () => {
+    try {
+      const response = await fetch('/api/auth/google');
+      if (!response.ok) throw new Error('Authentication failed');
+      
+      const userData = await response.json();
+      setUser(userData);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('Sign in error:', error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout');
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  // Check auth status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/session');
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Add useEffect for theme application
+  useEffect(() => {
+    const theme = themeColors.find(t => t.name === currentClass.theme) || themeColors[0];
+    const root = document.documentElement;
+    
+    // Apply all theme colors
+    root.style.setProperty('--primary-color', theme.primary);
+    root.style.setProperty('--secondary-color', theme.secondary);
+    root.style.setProperty('--accent-color', theme.accent);
+    root.style.setProperty('--background-color', theme.background);
+    root.style.setProperty('--surface-color', theme.surface);
+    root.style.setProperty('--text-color', theme.text);
+    root.style.setProperty('--border-color', theme.border);
+    root.style.setProperty('--hover-color', theme.hover);
+    
+    // Update body background and text color
+    document.body.style.backgroundColor = theme.background;
+    document.body.style.color = theme.text;
+  }, [currentClass.theme]);
+
+  const widgetOptions = [
+    { 
+      type: 'timer', 
+      label: 'Timer', 
+      icon: (
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    },
+    { 
+      type: 'notes', 
+      label: 'Quick Notes', 
+      icon: (
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      )
+    },
+    { 
+      type: 'calculator', 
+      label: 'Calculator', 
+      icon: (
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+      )
+    }
+  ];
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-white shadow-md relative z-50 h-[var(--header-height)]">
-        <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <svg className="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <h1 className="ml-2 text-xl sm:text-2xl font-bold bg-gradient-to-r from-indigo-600 to-indigo-800 bg-clip-text text-transparent">
-                  EduScreen
-                </h1>
-              </div>
-
-              {/* Class Switcher */}
-              {isAuthenticated && (
-                <div className="relative">
-                  <button
-                    onClick={() => setIsClassMenuOpen(!isClassMenuOpen)}
-                    className="flex items-center space-x-2 px-4 py-2 rounded-lg
-                      text-gray-700 hover:bg-gray-100 transition-colors"
-                  >
-                    <span>{currentClass.name}</span>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  {isClassMenuOpen && (
-                    <div className="absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
-                      <div className="py-1">
-                        {classes.map(c => (
-                          <button
-                            key={c.id}
-                            onClick={() => switchClass(c.id)}
-                            className={`block w-full text-left px-4 py-2 text-sm
-                              ${c.id === currentClass.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                          >
-                            {c.name}
-                          </button>
-                        ))}
-                        <button
-                          onClick={addClass}
-                          className="block w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-gray-50"
-                        >
-                          + Add New Class
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+    <DndProvider backend={HTML5Backend}>
+      <div className="min-h-screen bg-background">
+        <header className="header">
+          <div className="header-left">
+            <div className="header-title">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/>
+                <path d="M5 15h14v2H5z"/>
+              </svg>
+              <span style={{ color: `var(--primary-color)` }}>EduScreen</span>
             </div>
-
-            <div className="flex items-center space-x-4">
-              {!isAuthenticated ? (
+            <div className="theme-selector">
+              {themeColors.map((theme) => (
                 <button
-                  onClick={() => setIsAuthenticated(true)}
-                  className="flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200"
-                >
-                  Sign In
-                </button>
-              ) : (
-                <div className="relative">
-                  <button
-                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    className="flex items-center space-x-2 rounded-full bg-white p-1 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    {userProfilePicture ? (
-                      <img
-                        className="h-8 w-8 rounded-full object-cover"
-                        src={userProfilePicture}
-                        alt="User profile"
-                      />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-
-                  {isProfileMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5">
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Change Profile Picture
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          className="hidden"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setUserProfilePicture(reader.result as string);
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </button>
-                      <button
-                        onClick={() => setIsAuthenticated(false)}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Sign Out
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                  key={theme.name}
+                  className={`theme-option ${currentClass.theme === theme.name ? 'active' : ''}`}
+                  style={{ 
+                    background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
+                    boxShadow: currentClass.theme === theme.name ? `0 0 0 2px white, 0 0 0 4px ${theme.primary}` : 'none'
+                  }}
+                  onClick={() => {
+                    setCurrentClass(prev => ({ ...prev, theme: theme.name }));
+                  }}
+                  title={theme.name}
+                />
+              ))}
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Theme Selector */}
-      <div className="bg-white border-b border-gray-200 h-[var(--theme-selector-height)]">
-        <ColorTheme 
-          currentClass={currentClass}
-          onThemeChange={(theme) => {
-            setCurrentClass(prev => ({ ...prev, theme }));
-          }}
-        />
-      </div>
-
-      {/* Main Content */}
-      <div className="main-layout">
-        {/* Whiteboard Area */}
-        <div className="whiteboard-area">
-          <TabScreen />
-        </div>
-
-        {/* Fixed YouTube Section */}
-        <div className="youtube-section">
-          <YouTubePlayerFixed />
-        </div>
-
-        {/* Widget Section */}
-        <div className="widget-section">
-          <div className="flex items-center justify-between p-4 border-b">
-            <h2 className="text-lg font-semibold">Widgets</h2>
-            <div className="flex items-center gap-2">
-              {isCustomizing && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleAddWidget('timer')}
-                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
-                  >
-                    Add Timer
-                  </button>
-                  <button
-                    onClick={() => handleAddWidget('notes')}
-                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
-                  >
-                    Add Notes
-                  </button>
-                  <button
-                    onClick={() => handleAddWidget('calculator')}
-                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
-                  >
-                    Add Calculator
-                  </button>
-                </div>
-              )}
+          <div className="header-right">
+            {!isAuthenticated ? (
               <button
-                onClick={toggleCustomizeMode}
-                className={`px-4 py-2 rounded-lg transition-colors duration-200 ${
-                  isCustomizing 
-                    ? 'bg-primary-color text-white' 
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}
+                onClick={handleSignIn}
+                className="btn-primary flex items-center gap-2"
               >
-                {isCustomizing ? 'Save Layout' : 'Customize'}
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                Sign in with Google
+              </button>
+            ) : (
+              <div className="flex items-center gap-4">
+                {user?.picture && (
+                  <img
+                    src={user.picture}
+                    alt={user.name}
+                    className="w-8 h-8 rounded-full"
+                  />
+                )}
+                <button
+                  onClick={handleSignOut}
+                  className="btn-primary"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+      </div>
+        </header>
+
+        <main className="main-layout">
+          <section className="youtube-section">
+            <div className="youtube-container">
+              <YouTubePlayerFixed />
+              <YouTubeMusicPlayer />
+            </div>
+          </section>
+
+          <section className="whiteboard-area">
+            <TabScreen />
+          </section>
+
+          <section className="widget-section">
+            <div className="widget-panel-header">
+              <button
+                onClick={() => setShowWidgetMenu(true)}
+                className="add-widget-button"
+                title="Add Widget"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
               </button>
             </div>
-          </div>
-          <div className="widget-grid">
-            {widgets.map(renderWidget)}
-          </div>
-        </div>
+            
+            <div className="widget-grid">
+              {currentClass.widgets.map((widget, index) => (
+                <DraggableWidget
+                  key={widget.id}
+                  id={widget.id}
+                  index={index}
+                  title={widget.label || widget.type}
+                  type={widget.type}
+                  onRemove={() => removeWidget(widget.id)}
+                  classId={currentClass.id}
+                  size={widget.size || '1x1'}
+                  isCustomizing={true}
+                  moveWidget={moveWidget}
+                >
+                  {getWidgetComponent(widget)}
+                </DraggableWidget>
+              ))}
+            </div>
+            
+            {showWidgetMenu && (
+              <WidgetMenu
+                onClose={() => setShowWidgetMenu(false)}
+                onSelectWidget={handleAddWidget}
+              />
+            )}
+          </section>
+        </main>
       </div>
-    </div>
+    </DndProvider>
   );
 }
 
-export default App;
