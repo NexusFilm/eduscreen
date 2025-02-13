@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../../lib/supabase';
 
 interface Video {
   id: string;
@@ -38,18 +39,12 @@ export const YouTubePlayerFixed: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(
-          searchQuery
-        )}&type=video&key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}`
-      );
+      const { data, error: functionError } = await supabase.functions.invoke('youtube', {
+        body: { action: 'SEARCH', query: searchQuery }
+      });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch videos');
-      }
+      if (functionError) throw functionError;
 
-      const data = await response.json();
-      
       const videos: Video[] = data.items.map((item: YouTubeSearchResult) => ({
         id: item.id.videoId,
         title: item.snippet.title,

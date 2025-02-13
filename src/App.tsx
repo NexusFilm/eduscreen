@@ -6,7 +6,6 @@ import { Calculator } from './components/widgets/Calculator';
 import { DraggableWidget } from './components/DraggableWidget';
 import { TabScreen } from './components/Whiteboard/TabScreen';
 import { YouTubePlayerFixed } from './components/widgets/YouTubePlayerFixed';
-import { YouTubeMusicPlayer } from './components/widgets/YouTubeMusicPlayer';
 import SupabaseTest from './components/SupabaseTest';
 import ConfigCheck from './components/ConfigCheck';
 import './App.css';
@@ -14,6 +13,9 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import WidgetMenu from './components/WidgetMenu';
 import { signInWithGoogle, signOut, getCurrentUser, User } from './lib/auth';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/login';
+import AuthCallback from './pages/auth/callback';
 
 interface Position {
   x: number;
@@ -392,131 +394,141 @@ export default function App() {
   ];
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen bg-background">
-        <header className="header">
-          <div className="header-left">
-            <div className="header-title">
-              <svg viewBox="0 0 24 24">
-                <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/>
-                <path d="M5 15h14v2H5z"/>
-              </svg>
-              <span style={{ color: `var(--primary-color)` }}>EduScreen</span>
-            </div>
-            <div className="theme-selector">
-              {themeColors.map((theme) => (
-                <button
-                  key={theme.name}
-                  className={`theme-option ${currentClass.theme === theme.name ? 'active' : ''}`}
-                  style={{ 
-                    background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
-                    boxShadow: currentClass.theme === theme.name ? `0 0 0 2px white, 0 0 0 4px ${theme.primary}` : 'none'
-                  }}
-                  onClick={() => {
-                    setCurrentClass(prev => ({ ...prev, theme: theme.name }));
-                  }}
-                  title={theme.name}
-                />
-              ))}
-            </div>
-            <SupabaseTest />
-          </div>
-          <div className="header-right">
-            {!isAuthenticated ? (
-              <button
-                onClick={handleSignIn}
-                className="btn-primary flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-                Sign in with Google
-              </button>
-            ) : (
-              <div className="flex items-center gap-4">
-                {user?.picture && (
-                  <img
-                    src={user.picture}
-                    alt={user.name}
-                    className="w-8 h-8 rounded-full"
-                  />
-                )}
-                <button
-                  onClick={handleSignOut}
-                  className="btn-primary"
-                >
-                  Sign out
-                </button>
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route
+          path="/*"
+          element={
+            <DndProvider backend={HTML5Backend}>
+              <div className="min-h-screen bg-background">
+                <header className="header">
+                  <div className="header-left">
+                    <div className="header-title">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/>
+                        <path d="M5 15h14v2H5z"/>
+                      </svg>
+                      <span style={{ color: `var(--primary-color)` }}>EduScreen</span>
+                    </div>
+                    <div className="theme-selector">
+                      {themeColors.map((theme) => (
+                        <button
+                          key={theme.name}
+                          className={`theme-option ${currentClass.theme === theme.name ? 'active' : ''}`}
+                          style={{ 
+                            background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
+                            boxShadow: currentClass.theme === theme.name ? `0 0 0 2px white, 0 0 0 4px ${theme.primary}` : 'none'
+                          }}
+                          onClick={() => {
+                            setCurrentClass(prev => ({ ...prev, theme: theme.name }));
+                          }}
+                          title={theme.name}
+                        />
+                      ))}
+                    </div>
+                    <SupabaseTest />
+                  </div>
+                  <div className="header-right">
+                    {!isAuthenticated ? (
+                      <button
+                        onClick={handleSignIn}
+                        className="btn-primary flex items-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        Sign in with Google
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-4">
+                        {user?.picture && (
+                          <img
+                            src={user.picture}
+                            alt={user.name}
+                            className="w-8 h-8 rounded-full"
+                          />
+                        )}
+                        <button
+                          onClick={handleSignOut}
+                          className="btn-primary"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </header>
+
+                <main className="main-layout">
+                  <section className="youtube-section">
+                    <div className="youtube-container">
+                      <YouTubePlayerFixed />
+                    </div>
+                  </section>
+
+                  <section className="whiteboard-area">
+                    <TabScreen />
+                  </section>
+
+                  <section className="widget-section">
+                    <div className="widget-panel-header">
+                      <button
+                        onClick={() => setShowWidgetMenu(true)}
+                        className="add-widget-button"
+                        title="Add Widget"
+                      >
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="widget-grid">
+                      {currentClass.widgets.map((widget, index) => (
+                        <DraggableWidget
+                          key={widget.id}
+                          id={widget.id}
+                          index={index}
+                          title={widget.label || widget.type}
+                          type={widget.type}
+                          onRemove={() => removeWidget(widget.id)}
+                          classId={currentClass.id}
+                          size={widget.size || '1x1'}
+                          isCustomizing={true}
+                          moveWidget={moveWidget}
+                        >
+                          {getWidgetComponent(widget)}
+                        </DraggableWidget>
+                      ))}
+                    </div>
+                    
+                    {showWidgetMenu && (
+                      <WidgetMenu
+                        onClose={() => setShowWidgetMenu(false)}
+                        onSelectWidget={handleAddWidget}
+                      />
+                    )}
+                  </section>
+                </main>
               </div>
-            )}
-      </div>
-        </header>
-
-        <main className="main-layout">
-          <section className="youtube-section">
-            <div className="youtube-container">
-              <YouTubePlayerFixed />
-              <YouTubeMusicPlayer />
-            </div>
-          </section>
-
-          <section className="whiteboard-area">
-            <TabScreen />
-          </section>
-
-          <section className="widget-section">
-            <div className="widget-panel-header">
-              <button
-                onClick={() => setShowWidgetMenu(true)}
-                className="add-widget-button"
-                title="Add Widget"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-        </button>
-            </div>
-            
-            <div className="widget-grid">
-              {currentClass.widgets.map((widget, index) => (
-                <DraggableWidget
-                  key={widget.id}
-                  id={widget.id}
-                  index={index}
-                  title={widget.label || widget.type}
-                  type={widget.type}
-                  onRemove={() => removeWidget(widget.id)}
-                  classId={currentClass.id}
-                  size={widget.size || '1x1'}
-                  isCustomizing={true}
-                  moveWidget={moveWidget}
-                >
-                  {getWidgetComponent(widget)}
-                </DraggableWidget>
-              ))}
-            </div>
-            
-            {showWidgetMenu && (
-              <WidgetMenu
-                onClose={() => setShowWidgetMenu(false)}
-                onSelectWidget={handleAddWidget}
-              />
-            )}
-          </section>
-        </main>
-      </div>
-    </DndProvider>
+            </DndProvider>
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
 
